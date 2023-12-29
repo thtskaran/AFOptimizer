@@ -17,11 +17,11 @@ To run AFOptimizer, you need Python and OpenCV. If you're using Replit, ensure t
     pkgs.postgresql,
     pkgs.libGL
   ];
-}
+} ```
 
 ## Usage
 - **Specify the input and output video file paths in the script.**
-- **Adjust the movement_threshold variable as per your requirements.**
+- **Adjust the ```movement_threshold``` variable as per your requirements.**
 - **Run the script to process the video.**
 ## Development and Contributions
 **This project is currently under active development. We are working on refining the movement detection threshold to ensure optimal accuracy. Contributions, suggestions, and feedback are highly welcome.**

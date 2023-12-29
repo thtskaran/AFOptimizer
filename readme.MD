@@ -17,7 +17,8 @@ To run AFOptimizer, you need Python and OpenCV. If you're using Replit, ensure t
     pkgs.postgresql,
     pkgs.libGL
   ];
-} ```
+}
+```
 
 ## Usage
 - **Specify the input and output video file paths in the script.**

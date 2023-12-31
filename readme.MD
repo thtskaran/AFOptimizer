@@ -1,38 +1,48 @@
 # Anime Frame Optimizer (AFOptimizer)
 
 ## Introduction
-Anime Frame Optimizer (AFOptimizer) is a Python-based tool that enhances the anime viewing experience by automatically removing static or 'dead' frames from videos. Leveraging the powerful OpenCV library, AFOptimizer implements two sophisticated frame analysis methods: Optical Flow and Frame Difference. These methods are designed to optimize videos by identifying and eliminating frames with minimal or no movement.
+Anime Frame Optimizer (AFOptimizer) is a Python tool designed to enhance anime viewing experiences by removing static or 'dead' frames from videos. Using OpenCV, AFOptimizer implements three advanced frame analysis methods: Optical Flow, Frame Difference, and Structural Similarity Index (SSIM), each catering to specific video processing needs.
 
 ## Features
-- **Dual Detection Methods**: Choose between Optical Flow and Frame Difference methods for frame analysis.
-- **Efficient Frame Removal**: Automatically detects and removes static frames, streamlining the viewing experience.
-- **Customizable Sensitivity**: Adjust the sensitivity of movement detection to suit different video types and preferences.
-- **Command-Line Interface**: Easy-to-use CLI for processing videos with specified methods and settings.
+- **Tri-Method Analysis**: Offers Optical Flow, Frame Difference, and SSIM methods for frame analysis.
+- **Efficient Frame Removal**: Detects and removes static frames, enhancing the viewing experience.
+- **Customizable Sensitivity**: Adjust movement detection sensitivity for different video types.
+- **Command-Line Interface**: User-friendly CLI for easy processing with specified methods and settings.
+- **Performance Variation**: Each method varies in processing time and efficiency: Optical Flow > SSIM > Frame Difference.
 
 ## Setup and Installation
-AFOptimizer requires Python and OpenCV. Ensure these are installed and properly configured on your system.
+Ensure Python and OpenCV are installed and configured on your system to use AFOptimizer.
 
 ## Usage
-Run `main.py` with the desired method and video file as arguments:
-- `python main.py -of --video=path/to/video` for Optical Flow method.
-- `python main.py -fd --video=path/to/video` for Frame Difference method.
+Execute `main.py` with the chosen method and video file:
+- `python main.py -of --video=path/to/video` for Optical Flow.
+- `python main.py -fd --video=path/to/video` for Frame Difference.
+- `python main.py -ss --video=path/to/video --ssim_threshold=0.9587` for SSIM. (--ssim_threshold flag is optional , if not used value will be set to 0.9587)
 
 ## Methods Explained
 ### Optical Flow Method
-- **How It Works**: This method calculates the motion between two consecutive frames based on pixel changes.
-- **Technique**: Utilizes the Farneback algorithm to compute dense optical flow, providing a motion vector for each pixel.
-- **Ideal Use**: Best for videos where precision in movement detection is crucial, and for analyzing intricate details in motion.
-- **Output**: Generates a video with smoother transitions by removing frames where pixel motion is below the set threshold.
+- **Functionality**: Analyzes pixel movement between frames using motion vectors.
+- **Technique**: Employs the Farneback algorithm for dense optical flow, quantifying motion for each pixel.
+- **Ideal Use**: Suited for videos needing detailed motion analysis, as it precisely captures pixel dynamics.
+- **Output**: Creates smoother transitions in videos by omitting frames with minimal pixel motion.
+- **Performance**: Generally requires more processing time due to complex vector calculations.
 
 ### Frame Difference Method
-- **How It Works**: This method assesses the difference in pixel values between consecutive frames.
-- **Technique**: Compares grayscale versions of consecutive frames and measures the change in pixel intensity.
-- **Dynamic Thresholding**: Initially samples a set of frames to calculate an average movement value, which is used to adjust the sensitivity dynamically.
-- **Ideal Use**: Effective in scenarios with varying lighting conditions or when dealing with videos having minimal background movement.
-- **Output**: Produces a video emphasizing significant movements by discarding frames with minimal changes.
+- **Functionality**: Compares pixel intensity changes between consecutive frames.
+- **Technique**: Analyzes grayscale frame differences, adjusting sensitivity based on initial frame sampling.
+- **Ideal Use**: Effective for videos with varying lighting or minimal background motion.
+- **Output**: Highlights significant movements, removing frames with negligible changes.
+- **Performance**: Faster than Optical Flow but less precise in motion detection.
+
+### SSIM Method
+- **Functionality**: Evaluates frame similarity using the Structural Similarity Index.
+- **Technique**: Measures changes in luminance, contrast, and structure between frames.
+- **Ideal Use**: Suitable for videos where perceptual frame similarity is a priority.
+- **Output**: Excludes frames that are perceptually similar to their preceding frames.
+- **Performance**: Faster than Optical Flow, with a focus on perceptual quality rather than pixel-level changes.
 
 ## Development and Contributions
-AFOptimizer is in active development, and contributions to enhance its functionality are welcome. We are particularly interested in refining the movement detection algorithms and adding more features for user customization.
+AFOptimizer is continually evolving. We encourage contributions, especially in algorithm refinement and feature expansion.
 
 ## Contact and Support
-For support, contributions, or queries, please reach out through hello@karanprasad.com
+For queries or contributions, reach out to hello@karanprasad.com.

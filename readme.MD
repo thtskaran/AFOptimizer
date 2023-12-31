@@ -19,7 +19,9 @@ To use AFOptimizer, Python and OpenCV are required. For Replit users, add the fo
     pkgs.python38Packages.opencv4,
     pkgs.libGL
   ];
-}
+} 
+```
+
 ## Usage
 1. **Select the Method**: Choose between Frame Difference (`frameDifference.py`) and Optical Flow (`opticalFlow.py`) methods based on your requirements.
 2. **Configure the Script**: Specify input and output video file paths and adjust the `movement_threshold` variable for Frame Difference or `flow_mag_threshold` for Optical Flow.

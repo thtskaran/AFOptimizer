@@ -1,29 +1,40 @@
 # Anime Frame Optimizer (AFOptimizer)
 
 ## Introduction
-Anime Frame Optimizer (AFOptimizer) is a Python-based tool that enhances anime videos by automatically removing static, or 'dead', frames. Using OpenCV, this script identifies and eliminates frames with minimal or no movement, streamlining the viewing experience.
+Anime Frame Optimizer (AFOptimizer) is a Python-based tool designed to enhance the anime viewing experience by automatically removing static or 'dead' frames from videos. Utilizing OpenCV, AFOptimizer offers two distinct methods - Frame Difference and Optical Flow - to identify and eliminate frames with minimal or no movement.
 
 ## Features
-- **Efficient Frame Removal**: Automates the detection and removal of static frames from anime footage.
-- **Customizable Threshold**: Users can set the sensitivity of movement detection.
-- **Replit Compatibility**: Configured to work on Replit with specific Nix dependencies.
+- **Dual Detection Methods**: Provides two methods for detecting static frames: Frame Difference and Optical Flow.
+- **Efficient Frame Removal**: Automates the process of detecting and removing static frames from anime videos.
+- **Customizable Threshold**: Users can adjust the sensitivity of movement detection for both methods.
+- **Replit Compatibility**: Configured for use on Replit with specific Nix dependencies, ensuring broad accessibility.
 
 ## Setup and Installation
-To run AFOptimizer, you need Python and OpenCV. If you're using Replit, ensure the following dependencies are added to your `replit.nix` file for correct functionality:
+To use AFOptimizer, Python and OpenCV are required. For Replit users, add the following dependencies to your `replit.nix` file:
 
 ```nix
 { pkgs }: {
   deps = [
-    pkgs.postgresql,
+    pkgs.python38Full,
+    pkgs.python38Packages.opencv4,
     pkgs.libGL
   ];
 }
-```
-
 ## Usage
-- **Specify the input and output video file paths in the script.**
-- **Adjust the ```movement_threshold``` variable as per your requirements.**
-- **Run the script to process the video.**
-- 
+1. **Select the Method**: Choose between Frame Difference (`frameDifference.py`) and Optical Flow (`opticalFlow.py`) methods based on your requirements.
+2. **Configure the Script**: Specify input and output video file paths and adjust the `movement_threshold` variable for Frame Difference or `flow_mag_threshold` for Optical Flow.
+3. **Run the Script**: Execute the script to process the video using the chosen method.
+## Methods Explained
+### Frame Difference Method (`frameDifference.py`)
+- Detects static frames based on the pixel difference between consecutive frames.
+- Ideal for videos with varying lighting conditions or minimal background movement.
+
+### Optical Flow Method (`opticalFlow.py`)
+- Utilizes optical flow to measure pixel motion between frames.
+- Best suited for videos where precise pixel movement detection is required.
 ## Development and Contributions
-**This project is currently under active development. We are working on refining the movement detection threshold to ensure optimal accuracy. Contributions, suggestions, and feedback are highly welcome.**
+AFOptimizer is under active development. We aim to refine the movement detection algorithms for both methods to ensure optimal frame removal accuracy. Contributions, suggestions, and feedback are highly encouraged and appreciated. Join us in enhancing this tool for anime enthusiasts!
+
+## Contact and Support
+For support or to contribute, please reach out through hello@karanprasad.com.
+

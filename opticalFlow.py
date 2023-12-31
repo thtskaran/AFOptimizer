@@ -25,9 +25,12 @@ def is_significant_movement_optical_flow(flow, mag_threshold):
 def remove_dead_frames(video_path, output_path, flow_mag_threshold):
   cap = cv2.VideoCapture(video_path)
   if not cap.isOpened():
-    print("Error opening video file")
+    print(f"Error opening video file: {video_path}")
     return
 
+  print(f"Loaded video file: {video_path}")
+
+  total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
   fps = cap.get(cv2.CAP_PROP_FPS)
   width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
   height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -41,26 +44,31 @@ def remove_dead_frames(video_path, output_path, flow_mag_threshold):
     cap.release()
     return
 
-  frame_count, written_frame_count = 0, 0
+  frame_count, dead_frame_count, written_frame_count = 0, 0, 0
 
   while True:
     ret, current_frame = cap.read()
     if not ret:
       break
 
+    frame_count += 1
+    print(f"Processing frame {frame_count}/{total_frames}...", end='\r')
+
     flow = calculate_optical_flow(prev_frame, current_frame)
 
     if is_significant_movement_optical_flow(flow, flow_mag_threshold):
       out.write(prev_frame)
       written_frame_count += 1
+    else:
+      dead_frame_count += 1
 
     prev_frame = current_frame
-    frame_count += 1
 
   cap.release()
   out.release()
   print(f"Total frames processed: {frame_count}")
-  print(f"Total frames written: {written_frame_count}")
+  print(f"Dead frames (not written): {dead_frame_count}")
+  print(f"Frames written to output: {written_frame_count}")
 
 
 # Example usage:

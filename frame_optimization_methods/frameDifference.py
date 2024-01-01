@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import os
+from tqdm import tqdm
 
 
 def calculate_initial_threshold(cap, sample_size, base_threshold):
@@ -52,15 +53,18 @@ def remove_dead_frames(video_path, base_threshold):
 
   print("Processing video with initial threshold:", movement_threshold)
   frame_count, written_frame_count = 0, 0
-  ret, prev_frame = cap.read()
 
+  # Initialize tqdm progress bar
+  pbar = tqdm(total=total_frames, desc="Processing Video", unit="frame")
+
+  ret, prev_frame = cap.read()
   while ret:
     ret, current_frame = cap.read()
     if not ret:
       break
 
     frame_count += 1
-    print(f"Processing frame {frame_count}/{total_frames}...", end='\r')
+    pbar.update(1)  # Update the progress bar
 
     if is_significant_movement(prev_frame, current_frame, movement_threshold):
       out.write(prev_frame)
@@ -70,6 +74,8 @@ def remove_dead_frames(video_path, base_threshold):
 
   cap.release()
   out.release()
+  pbar.close()  # Close the progress bar
+
   print(f"\nTotal frames processed: {frame_count}")
   print(f"Total frames written: {written_frame_count}")
 

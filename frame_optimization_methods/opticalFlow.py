@@ -34,7 +34,7 @@ def remove_dead_frames(video_path, flow_mag_threshold):
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Assuming .mp4 output, change if necessary
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Hardcoding to mp4
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     ret, prev_frame = cap.read()

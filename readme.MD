@@ -2,7 +2,6 @@
 
 ## Introduction
 Anime Frame Optimizer (AFOptimizer) is a Python-based tool that enhances anime viewing experiences by automatically removing static or 'dead' frames from videos. Using OpenCV, AFOptimizer employs three sophisticated frame analysis methods: Optical Flow, Frame Difference, and Structural Similarity Index (SSIM), each tailored to specific video processing requirements.
-![Google Colab Logo](https://www.google.com/url?sa=i&url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FFile%3AGoogle_Colaboratory_SVG_Logo.svg&psig=AOvVaw1k2PnOoEVQBmQSitHHTbqu&ust=1704183513949000&source=images&cd=vfe&ved=0CBIQjRxqFwoTCPCSzLngu4MDFQAAAAAdAAAAABAE){:height="50px" width="50px"}
 
 **[Use this project on Google Colab](https://colab.research.google.com/drive/1zKq1j4RgXeV83lBpi31CsEzjnDXb4qum?usp=sharing)**
 

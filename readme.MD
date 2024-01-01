@@ -15,7 +15,7 @@ Anime Frame Optimizer (AFOptimizer) is a Python-based tool that enhances anime v
   - _Note: Performance metrics tested on a 4vCPU, 8GB RAM replit core environment._
 
 ## Setup and Installation
-To use AFOptimizer, ensure Python and all the dependencies from `requirements.txt` are installed.
+To use AFOptimizer, ensure Python and all the dependencies from `requirements.txt` are installed
 
 ## Usage
 Run `main.py` with the desired method and video file as arguments:

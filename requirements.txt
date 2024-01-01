@@ -2,4 +2,4 @@ opencv-python
 numpy
 scikit-image
 tqdm
-skvideo
+scikit-video

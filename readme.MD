@@ -22,9 +22,9 @@ To use AFOptimizer, ensure Python and all the dependencies from `requirements.tx
 
 ## Usage
 Run `main.py` with the desired method and video file as arguments:
-- `python main.py -of --video=path/to/video` for Optical Flow.
-- `python main.py -fd --video=path/to/video` for Frame Difference.
-- `python main.py -ss --video=path/to/video --ssim_threshold=0.9587` for SSIM (the `--ssim_threshold` flag is optional; if not used, the value will default to 0.9587).
+- `python FrameEnhancer.py -of --video=path/to/video` for Optical Flow.
+- `python FrameEnhancer.py -fd --video=path/to/video` for Frame Difference.
+- `python FrameEnhancer.py -ss --video=path/to/video --ssim_threshold=0.9587` for SSIM (the `--ssim_threshold` flag is optional; if not used, the value will default to 0.9587).
 
 ## Methods Explained
 ### Optical Flow Method

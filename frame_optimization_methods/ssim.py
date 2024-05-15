@@ -4,6 +4,13 @@ import os
 from tqdm import tqdm
 
 def process_video(video_path, ssim_threshold, output_path):
+    """Processes the video to remove similar frames based on SSIM.
+
+    Args:
+        video_path (str): Path to the input video file.
+        ssim_threshold (float): Threshold for structural similarity index.
+        output_path (str): Path for the output video file.
+    """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise IOError(f"Error opening video file: {video_path}")
@@ -53,6 +60,6 @@ def process_video(video_path, ssim_threshold, output_path):
 
     print(f"Processed {count} frames. Saved {saved_frames} frames to {output_path}")
 
-# Uncomment below lines for direct usage
+# Example usage (uncomment to use):
 # if __name__ == "__main__":
 #     process_video('input.mp4', 0.987, 'output.mp4')

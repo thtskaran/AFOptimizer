@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AFOptimizer Studio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <h1>AFOptimizer Studio</h1>
+      <p>Polish your frames with optical flow, frame difference, or SSIM — all from the browser.</p>
+      <p class="output-note">Processed videos land in <span>{{ output_dir }}</span>.</p>
+    </header>
+
+    <main class="bento-grid">
+      <section class="card card-upload">
+        <h2>1. Upload Video</h2>
+        <p>Drop a clip or browse your files. Accepted formats: MP4, MOV, AVI, MKV, WEBM.</p>
+        <label for="video" class="upload-dropzone" id="dropzone">
+          <input type="file" name="video" id="video" accept="video/*" required />
+          <span id="upload-label">Drag & Drop or Click to Upload</span>
+        </label>
+      </section>
+
+      <section class="card card-method">
+        <h2>2. Choose Method</h2>
+        <div class="method-grid" id="method-grid">
+          <button type="button" data-method="opticalFlow" class="method-button active">
+            <h3>Optical Flow</h3>
+            <p>Detects motion by tracking pixel flow for smooth transitions.</p>
+          </button>
+          <button type="button" data-method="frameDifference" class="method-button">
+            <h3>Frame Difference</h3>
+            <p>Flags static frames by comparing brightness deltas.</p>
+          </button>
+          <button type="button" data-method="ssim" class="method-button">
+            <h3>SSIM</h3>
+            <p>Keeps only frames with meaningful structural change.</p>
+          </button>
+        </div>
+      </section>
+
+      <section class="card card-parameters">
+        <h2>3. Fine-Tune</h2>
+        <form id="optimizer-form">
+          <input type="hidden" name="method" id="method-input" value="opticalFlow" />
+          <div class="parameter-group" data-for="opticalFlow">
+            <label for="flow_mag_threshold">Flow Magnitude Threshold</label>
+            <input type="number" step="0.01" min="0" name="flow_mag_threshold" id="flow_mag_threshold" value="0.4" />
+            <small>Higher values keep more frames. Start around 0.4.</small>
+          </div>
+          <div class="parameter-group hidden" data-for="frameDifference">
+            <label for="base_threshold">Base Threshold</label>
+            <input type="number" step="1" min="0" name="base_threshold" id="base_threshold" value="10" />
+            <small>Adjust sensitivity to movement; 10 works for most clips.</small>
+          </div>
+          <div class="parameter-group hidden" data-for="ssim">
+            <label for="ssim_threshold">SSIM Threshold</label>
+            <input type="number" step="0.0001" min="0" max="1" name="ssim_threshold" id="ssim_threshold" value="0.9587" />
+            <small>Lower threshold keeps more frames; stay below 0.99.</small>
+          </div>
+          <button type="submit" class="primary-button" id="process-button">
+            Process Video
+          </button>
+        </form>
+      </section>
+
+      <section class="card card-progress">
+        <h2>4. Processing</h2>
+        <div class="progress-wrapper">
+          <div class="progress-track" id="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+            <div class="progress-info" id="progress-info">
+              <span id="elapsed-time">00:00</span>
+              <span class="progress-dot">•</span>
+              <span id="remaining-time">--:--</span>
+            </div>
+          </div>
+          <p class="progress-label" id="progress-label">Idle</p>
+        </div>
+      </section>
+
+      <section class="card card-status">
+        <h2>5. Status & Download</h2>
+        <div id="status-area">
+          <p class="status-message">Waiting for your command.</p>
+        </div>
+      </section>
+
+      <section class="card card-tips">
+        <h2>Tips</h2>
+        <ul>
+          <li>Shorter clips give quicker results; trim before uploading.</li>
+          <li>Use Optical Flow for subtle motion, Frame Difference for choppy edits.</li>
+          <li>Keep your browser open during processing — it can take a moment.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+</body>
+</html>

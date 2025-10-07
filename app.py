@@ -12,11 +12,42 @@ from werkzeug.utils import secure_filename
 from frame_optimization_methods.opticalFlow import remove_dead_frames as remove_dead_frames_of
 from frame_optimization_methods.frameDifference import remove_dead_frames as remove_dead_frames_fd
 from frame_optimization_methods.ssim import process_video as process_video_ssim
+from frame_optimization_methods.unsupervised_dedup import deduplicate_frames as deduplicate_frames_unsupervised
 
 ROOT_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = ROOT_DIR / "uploads"
 PROCESSED_DIR = ROOT_DIR / "outputs"
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+
+UNSUPERVISED_PRESETS = {
+    "gentle": {
+        "hash_threshold": 6,
+        "ordinal_footrule_threshold": 220.0,
+        "feature_similarity": 0.30,
+        "flow_static_threshold": 0.08,
+        "flow_low_ratio": 0.98,
+        "pan_orientation_std": 0.60,
+        "safety_keep_seconds": 1.0,
+    },
+    "balanced": {
+        "hash_threshold": 8,
+        "ordinal_footrule_threshold": 260.0,
+        "feature_similarity": 0.26,
+        "flow_static_threshold": 0.09,
+        "flow_low_ratio": 0.97,
+        "pan_orientation_std": 0.65,
+        "safety_keep_seconds": 1.5,
+    },
+    "aggressive": {
+        "hash_threshold": 12,
+        "ordinal_footrule_threshold": 320.0,
+        "feature_similarity": 0.22,
+        "flow_static_threshold": 0.12,
+        "flow_low_ratio": 0.94,
+        "pan_orientation_std": 0.80,
+        "safety_keep_seconds": 2.5,
+    },
+}
 
 UPLOAD_DIR.mkdir(exist_ok=True)
 PROCESSED_DIR.mkdir(exist_ok=True)
@@ -178,6 +209,24 @@ def _run_job(job_id: str, upload_path: Path, method: str,
     elif method == "ssim":
       ssim_threshold = params["ssim_threshold"]
       output_path = _run_ssim(upload_path, ssim_threshold, progress_callback)
+    elif method == "unsupervisedDedup":
+      hash_threshold = int(params["hash_threshold"])
+      ordinal_footrule = float(params["ordinal_footrule_threshold"])
+      feature_similarity = float(params["feature_similarity"])
+      flow_static_threshold = float(params["flow_static_threshold"])
+      flow_low_ratio = float(params["flow_low_ratio"])
+      pan_orientation_std = float(params["pan_orientation_std"])
+      safety_keep_seconds = float(params["safety_keep_seconds"])
+      output_path = _run_unsupervised_dedup(
+          upload_path,
+          hash_threshold,
+          ordinal_footrule,
+          feature_similarity,
+          flow_static_threshold,
+          flow_low_ratio,
+          pan_orientation_std,
+          safety_keep_seconds,
+          progress_callback)
     else:
       raise ValueError("Unknown optimization method.")
 
@@ -241,6 +290,36 @@ def _run_ssim(
   return final_path
 
 
+def _run_unsupervised_dedup(
+    video_path: Path,
+    hash_threshold: int,
+    ordinal_footrule_threshold: float,
+    feature_similarity: float,
+    flow_static_threshold: float,
+    flow_low_ratio: float,
+    pan_orientation_std: float,
+    safety_keep_seconds: float,
+    progress_callback: Optional[Callable[[int, Optional[int], Optional[str]], None]] = None
+) -> Path:
+  output_location = deduplicate_frames_unsupervised(
+      str(video_path),
+      hash_threshold=hash_threshold,
+      ordinal_footrule_threshold=ordinal_footrule_threshold,
+      feature_similarity=feature_similarity,
+      flow_static_threshold=flow_static_threshold,
+      flow_low_ratio=flow_low_ratio,
+      pan_orientation_std=pan_orientation_std,
+      safety_keep_seconds=safety_keep_seconds,
+      progress_callback=progress_callback)
+  output_path = Path(output_location)
+  if not output_path.exists():
+    raise FileNotFoundError(
+        "Unsupervised deduplication did not produce an output file.")
+  final_path = PROCESSED_DIR / output_path.name
+  output_path.replace(final_path)
+  return final_path
+
+
 def _save_upload(upload_file) -> Path:
   timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
   secure_name = secure_filename(upload_file.filename)
@@ -289,6 +368,12 @@ def process_video():
     elif method == "ssim":
       ssim_threshold = float(request.form.get("ssim_threshold", 0.9587))
       parameters["ssim_threshold"] = ssim_threshold
+    elif method == "unsupervisedDedup":
+      profile = (request.form.get("dedup_profile", "balanced").strip().lower()
+                 or "balanced")
+      preset = UNSUPERVISED_PRESETS.get(profile,
+                                        UNSUPERVISED_PRESETS["balanced"])
+      parameters.update({"profile": profile, **preset})
     else:
       _safe_unlink(upload_path)
       return jsonify({"error": "Unknown optimization method."}), 400

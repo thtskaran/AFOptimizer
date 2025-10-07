@@ -10,7 +10,7 @@
   <div class="page">
     <header class="page-header">
       <h1>AFOptimizer Studio</h1>
-      <p>Polish your frames with optical flow, frame difference, or SSIM — all from the browser.</p>
+      <p>Polish your frames with optical flow, frame difference, SSIM, or the unsupervised dedup pipeline — all from the browser.</p>
       <p class="output-note">Processed videos land in <span>{{ output_dir }}</span>.</p>
     </header>
 
@@ -39,6 +39,10 @@
             <h3>SSIM</h3>
             <p>Keeps only frames with meaningful structural change.</p>
           </button>
+          <button type="button" data-method="unsupervisedDedup" class="method-button">
+            <h3>Unsupervised Dedup</h3>
+            <p>Three-stage hashing, features, and motion flow to drop redundant frames.</p>
+          </button>
         </div>
       </section>
 
@@ -60,6 +64,25 @@
             <label for="ssim_threshold">SSIM Threshold</label>
             <input type="number" step="0.0001" min="0" max="1" name="ssim_threshold" id="ssim_threshold" value="0.9587" />
             <small>Lower threshold keeps more frames; stay below 0.99.</small>
+          </div>
+          <div class="parameter-group hidden" data-for="unsupervisedDedup">
+            <label for="dedup_profile_input">Dedup Profile</label>
+            <input type="hidden" name="dedup_profile" id="dedup_profile_input" value="balanced" />
+            <div class="profile-toggle" id="dedup-profile-toggle">
+              <button type="button" class="profile-option" data-profile="gentle">
+                <span class="profile-title">Gentle</span>
+                <span class="profile-copy">Keep more frames</span>
+              </button>
+              <button type="button" class="profile-option active" data-profile="balanced">
+                <span class="profile-title">Balanced</span>
+                <span class="profile-copy">Recommended mix</span>
+              </button>
+              <button type="button" class="profile-option" data-profile="aggressive">
+                <span class="profile-title">Aggressive</span>
+                <span class="profile-copy">Trim harder</span>
+              </button>
+            </div>
+            <small>Choose how assertive the unsupervised pipeline should be.</small>
           </div>
           <button type="submit" class="primary-button" id="process-button">
             Process Video

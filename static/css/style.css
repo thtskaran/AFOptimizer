@@ -352,6 +352,70 @@ textarea:focus-visible {
   gap: 8px;
 }
 
+.profile-toggle {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.profile-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 148, 160, 0.18);
+  background: rgba(24, 26, 32, 0.4);
+  color: inherit;
+  transition: transform var(--transition-base), border-color var(--transition-base), background var(--transition-base), box-shadow var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-option::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.2), transparent 60%);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  pointer-events: none;
+}
+
+.profile-option .profile-title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  letter-spacing: 0.01em;
+}
+
+.profile-option .profile-copy {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.profile-option:hover {
+  transform: translateY(-2px);
+  border-color: rgba(244, 244, 245, 0.25);
+  background: rgba(30, 32, 38, 0.62);
+  box-shadow: 0 16px 30px -24px rgba(0, 0, 0, 0.75);
+}
+
+.profile-option:hover::after {
+  opacity: 0.35;
+}
+
+.profile-option.active {
+  border-color: rgba(244, 244, 245, 0.32);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(148, 148, 160, 0.18));
+  box-shadow: 0 18px 36px -26px rgba(0, 0, 0, 0.75);
+}
+
+.profile-option.active::after {
+  opacity: 0.5;
+}
+
 .parameter-group input {
   border-radius: 12px;
   border: 1px solid rgba(148, 148, 160, 0.2);

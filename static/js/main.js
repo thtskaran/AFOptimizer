@@ -12,6 +12,8 @@ const progressFill = document.getElementById("progress-fill");
 const progressLabel = document.getElementById("progress-label");
 const elapsedTimeText = document.getElementById("elapsed-time");
 const remainingTimeText = document.getElementById("remaining-time");
+const profileOptions = document.querySelectorAll(".profile-option");
+const dedupProfileInput = document.getElementById("dedup_profile_input");
 
 let activeJob = null;
 let pollIntervalId = null;
@@ -26,6 +28,18 @@ function setActiveMethod(method) {
 
   parameterGroups.forEach((group) => {
     group.classList.toggle("hidden", group.dataset.for !== method);
+  });
+}
+
+function setDedupProfile(profile) {
+  if (!dedupProfileInput) {
+    return;
+  }
+  dedupProfileInput.value = profile;
+  profileOptions.forEach((option) => {
+    const isActive = option.dataset.profile === profile;
+    option.classList.toggle("active", isActive);
+    option.setAttribute("aria-pressed", String(isActive));
   });
 }
 
@@ -232,6 +246,20 @@ methodButtons.forEach((button) => {
 
 setActiveMethod(methodInput.value);
 resetProgressUI();
+
+if (dedupProfileInput) {
+  setDedupProfile(dedupProfileInput.value || "balanced");
+}
+
+profileOptions.forEach((option) => {
+  option.addEventListener("click", () => {
+    const profile = option.dataset.profile;
+    if (!profile) {
+      return;
+    }
+    setDedupProfile(profile);
+  });
+});
 
 videoInput.addEventListener("change", updateUploadLabel);
 

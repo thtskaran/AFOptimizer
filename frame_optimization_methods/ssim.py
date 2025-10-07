@@ -1,9 +1,13 @@
 import cv2
 from skimage.metrics import structural_similarity as compare_ssim
 import os
+from typing import Callable, Optional
 from tqdm import tqdm
 
-def process_video(video_path, ssim_threshold, output_path):
+def process_video(video_path,
+                  ssim_threshold,
+                  output_path,
+                  progress_callback: Optional[Callable[[int, int, Optional[str]], None]] = None):
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise IOError(f"Error opening video file: {video_path}")
@@ -21,8 +25,14 @@ def process_video(video_path, ssim_threshold, output_path):
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     count, saved_frames = 0, 0
 
+    total_frames = max(total_frames, 1)
+
     # Initialize tqdm progress bar
-    pbar = tqdm(total=total_frames, desc="Processing Video", unit="frame")
+    pbar = None
+    if progress_callback is None:
+        pbar = tqdm(total=total_frames, desc="Processing Video", unit="frame")
+    else:
+        progress_callback(0, total_frames, "Analyzing structure")
 
     while success:
         success, current_frame = cap.read()
@@ -41,7 +51,10 @@ def process_video(video_path, ssim_threshold, output_path):
 
         prev_frame = current_frame
         count += 1
-        pbar.update(1)  # Update the progress bar
+        if pbar:
+            pbar.update(1)  # Update the progress bar
+        elif progress_callback:
+            progress_callback(frame_count, total_frames, "Analyzing structure")
 
     if count > 0:
         out.write(prev_frame)  # Save the last frame
@@ -49,7 +62,10 @@ def process_video(video_path, ssim_threshold, output_path):
 
     cap.release()
     out.release()
-    pbar.close()  # Close the progress bar
+    if pbar:
+        pbar.close()  # Close the progress bar
+    elif progress_callback:
+        progress_callback(total_frames, total_frames, "Finalizing output")
 
     print(f"Processed {count} frames. Saved {saved_frames} frames to {output_path}")
 

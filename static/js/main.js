@@ -13,10 +13,9 @@ const progressLabel = document.getElementById("progress-label");
 const elapsedTimeText = document.getElementById("elapsed-time");
 const remainingTimeText = document.getElementById("remaining-time");
 
-let progressTimer = null;
-let progressValue = 0;
-let progressStartedAt = null;
-let progressHideTimeout = null;
+let activeJob = null;
+let pollIntervalId = null;
+let progressResetTimeout = null;
 
 function setActiveMethod(method) {
   methodButtons.forEach((button) => {
@@ -31,6 +30,10 @@ function setActiveMethod(method) {
 }
 
 function formatDuration(totalSeconds) {
+  if (!Number.isFinite(totalSeconds)) {
+    return "00:00";
+  }
+
   const safeSeconds = Math.max(0, Math.round(totalSeconds));
   const minutes = Math.floor(safeSeconds / 60);
   const seconds = safeSeconds % 60;
@@ -39,75 +42,160 @@ function formatDuration(totalSeconds) {
   return `${mm}:${ss}`;
 }
 
-function resetProgress(label = "Idle") {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
+function clearProgressReset() {
+  if (progressResetTimeout) {
+    clearTimeout(progressResetTimeout);
+    progressResetTimeout = null;
   }
-  if (progressHideTimeout) {
-    clearTimeout(progressHideTimeout);
-    progressHideTimeout = null;
+}
+
+function resetProgressUI(label = "Idle") {
+  if (pollIntervalId) {
+    clearInterval(pollIntervalId);
+    pollIntervalId = null;
   }
-  progressStartedAt = null;
-  progressValue = 0;
+  activeJob = null;
+  clearProgressReset();
+  progressTrack.classList.remove("active");
   progressFill.style.width = "0%";
   progressFill.classList.remove("success", "error");
-  progressTrack.classList.remove("active");
   progressLabel.textContent = label;
   elapsedTimeText.textContent = "00:00";
   remainingTimeText.textContent = "--:--";
 }
 
-function startProgress() {
-  resetProgress("Uploading & preparing video...");
-  progressTrack.classList.add("active");
-  progressValue = 5;
-  progressFill.style.width = `${progressValue}%`;
-  progressStartedAt = Date.now();
-  updateTimeDisplays();
-
-  progressTimer = setInterval(() => {
-    if (progressValue >= 90) {
-      clearInterval(progressTimer);
-      progressTimer = null;
-      return;
-    }
-
-    const increment = Math.random() * 6;
-    progressValue = Math.min(90, progressValue + increment);
-    progressFill.style.width = `${progressValue}%`;
-    updateTimeDisplays();
-
-    progressLabel.textContent = progressValue < 40
-      ? "Crunching frames..."
-      : progressValue < 75
-      ? "Analyzing motion..."
-      : "Refining output...";
-  }, 450);
+function scheduleProgressReset(label) {
+  clearProgressReset();
+  progressResetTimeout = setTimeout(() => {
+    resetProgressUI(label);
+  }, 2400);
 }
 
-function finishProgress(success) {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
-  }
-  if (progressHideTimeout) {
-    clearTimeout(progressHideTimeout);
+function applyProgressSnapshot(job) {
+  if (!job) {
+    return;
   }
 
-  progressValue = 100;
-  progressFill.style.width = "100%";
-  progressFill.classList.toggle("success", success);
-  progressFill.classList.toggle("error", !success);
-  progressLabel.textContent = success
-    ? "Processing complete."
-    : "Processing failed. Try again.";
-  updateTimeDisplays(success ? "success" : "error");
-  progressStartedAt = null;
+  progressTrack.classList.add("active");
+  progressFill.classList.remove("success", "error");
 
-  progressHideTimeout = setTimeout(() => {
-    resetProgress(success ? "Ready for the next run" : "Idle");
-  }, success ? 2000 : 2500);
+  const reportedTotal = Number(job.total_frames);
+  const processed = Number(job.processed_frames) || 0;
+  const hasTotal = Number.isFinite(reportedTotal) && reportedTotal > 0;
+  const safeTotal = hasTotal ? reportedTotal : Math.max(processed, 1);
+
+  const rawPercent = Number(job.progress);
+  const percent = Number.isFinite(rawPercent)
+    ? rawPercent
+    : hasTotal
+    ? (processed / safeTotal) * 100
+    : 0;
+  const clampedPercent = Math.min(100, Math.max(0, percent));
+  progressFill.style.width = `${clampedPercent.toFixed(1)}%`;
+
+  const stage = job.stage || "Processing";
+  const framesLabel = hasTotal
+    ? `${processed}/${safeTotal} frames`
+    : `${processed} ${processed === 1 ? "frame" : "frames"}`;
+  const percentLabel = `${clampedPercent.toFixed(1)}%`;
+  const fpsValue = Number(job.fps);
+  const labelParts = [stage, framesLabel];
+  if (hasTotal) {
+    labelParts.push(percentLabel);
+  }
+  if (Number.isFinite(fpsValue) && fpsValue > 0) {
+    labelParts.push(`${fpsValue.toFixed(1)} fps`);
+  }
+  progressLabel.textContent = labelParts.join(" • ");
+
+  const elapsed = Number(job.elapsed_seconds);
+  elapsedTimeText.textContent = Number.isFinite(elapsed)
+    ? formatDuration(elapsed)
+    : "00:00";
+
+  const eta = Number(job.eta_seconds);
+  if (job.status === "completed") {
+    remainingTimeText.textContent = "00:00";
+  } else if (job.status === "failed") {
+    remainingTimeText.textContent = "--:--";
+  } else if (Number.isFinite(eta) && eta >= 0) {
+    remainingTimeText.textContent = formatDuration(eta);
+  } else {
+    remainingTimeText.textContent = "--:--";
+  }
+}
+
+function stopJobTracking() {
+  if (pollIntervalId) {
+    clearInterval(pollIntervalId);
+    pollIntervalId = null;
+  }
+  activeJob = null;
+}
+
+async function pollJobProgress() {
+  if (!activeJob) {
+    return;
+  }
+
+  try {
+    const response = await fetch(activeJob.progressUrl, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Progress request failed with status ${response.status}`);
+    }
+
+    const job = await response.json();
+    applyProgressSnapshot(job);
+
+    if (job.status === "completed") {
+      handleJobSuccess(job);
+    } else if (job.status === "failed") {
+      handleJobFailure(job);
+    }
+  } catch (error) {
+    console.error(error);
+    stopJobTracking();
+    progressFill.classList.add("error");
+    progressLabel.textContent = "Progress unavailable";
+    remainingTimeText.textContent = "--:--";
+    setStatus("Lost connection to progress updates. Please try again.", "error");
+    processButton.disabled = false;
+    scheduleProgressReset("Idle");
+  }
+}
+
+function startJobTracking(jobId, progressUrl) {
+  clearProgressReset();
+  activeJob = { id: jobId, progressUrl };
+  progressTrack.classList.add("active");
+  progressFill.classList.remove("success", "error");
+  progressFill.style.width = "0%";
+  progressLabel.textContent = "Initializing...";
+  elapsedTimeText.textContent = "00:00";
+  remainingTimeText.textContent = "--:--";
+
+  pollJobProgress();
+  pollIntervalId = setInterval(pollJobProgress, 600);
+}
+
+function handleJobSuccess(job) {
+  stopJobTracking();
+  progressFill.classList.add("success");
+  applyProgressSnapshot(job);
+  const downloadUrl = job.download_url || (job.output_file ? `/download/${job.output_file}` : null);
+  setStatus(job.message || "Video processed successfully.", "success", downloadUrl);
+  processButton.disabled = false;
+  scheduleProgressReset("Ready for the next run");
+}
+
+function handleJobFailure(job) {
+  stopJobTracking();
+  progressFill.classList.add("error");
+  applyProgressSnapshot(job);
+  const errorMessage = job.error || job.message || "Processing failed. Try again.";
+  setStatus(errorMessage, "error");
+  processButton.disabled = false;
+  scheduleProgressReset("Idle");
 }
 
 function setStatus(message, type = "info", downloadUrl = null) {
@@ -128,39 +216,6 @@ function setStatus(message, type = "info", downloadUrl = null) {
   }
 }
 
-function updateTimeDisplays(mode = null) {
-  if (!progressStartedAt) {
-    elapsedTimeText.textContent = "00:00";
-    remainingTimeText.textContent = "--:--";
-    return;
-  }
-
-  const elapsedMs = Date.now() - progressStartedAt;
-  const elapsedSeconds = Math.max(0, elapsedMs / 1000);
-  elapsedTimeText.textContent = formatDuration(elapsedSeconds);
-
-  if (mode === "success") {
-    remainingTimeText.textContent = "00:00";
-    return;
-  }
-
-  if (mode === "error") {
-    remainingTimeText.textContent = "--:--";
-    return;
-  }
-
-  if (progressValue <= 5) {
-    remainingTimeText.textContent = "--:--";
-    return;
-  }
-
-  const estimatedTotalSeconds = elapsedSeconds / (progressValue / 100);
-  const remainingSeconds = Math.max(0, estimatedTotalSeconds - elapsedSeconds);
-  remainingTimeText.textContent = Number.isFinite(remainingSeconds)
-    ? formatDuration(remainingSeconds)
-    : "--:--";
-}
-
 function updateUploadLabel() {
   if (videoInput.files && videoInput.files[0]) {
     uploadLabel.textContent = videoInput.files[0].name;
@@ -176,7 +231,7 @@ methodButtons.forEach((button) => {
 });
 
 setActiveMethod(methodInput.value);
-resetProgress();
+resetProgressUI();
 
 videoInput.addEventListener("change", updateUploadLabel);
 
@@ -207,6 +262,11 @@ dropzone.addEventListener("drop", (event) => {
 optimizerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
+  if (activeJob) {
+    setStatus("A video is already being processed. Please wait for it to finish.", "info");
+    return;
+  }
+
   if (!videoInput.files || !videoInput.files.length) {
     setStatus("Please upload a video before processing.", "error");
     return;
@@ -216,8 +276,15 @@ optimizerForm.addEventListener("submit", async (event) => {
   formData.append("video", videoInput.files[0]);
 
   setStatus("Processing video — this may take a moment...", "info");
-  startProgress();
   processButton.disabled = true;
+  stopJobTracking();
+  clearProgressReset();
+  progressTrack.classList.add("active");
+  progressFill.classList.remove("success", "error");
+  progressFill.style.width = "0%";
+  progressLabel.textContent = "Uploading video...";
+  elapsedTimeText.textContent = "00:00";
+  remainingTimeText.textContent = "--:--";
 
   try {
     const response = await fetch("/api/process", {
@@ -229,14 +296,17 @@ optimizerForm.addEventListener("submit", async (event) => {
     if (!response.ok) {
       throw new Error(data.error || "An unexpected error occurred.");
     }
+    const { jobId, progressUrl } = data;
+    if (!jobId || !progressUrl) {
+      throw new Error("Server response missing progress tracking data.");
+    }
 
-    const downloadUrl = data.downloadUrl || null;
-    setStatus(data.message || "Processing complete.", "success", downloadUrl);
-    finishProgress(true);
+    setStatus(data.message || "Processing started.", "info");
+    startJobTracking(jobId, progressUrl);
   } catch (error) {
     setStatus(error.message, "error");
-    finishProgress(false);
-  } finally {
+    progressFill.classList.add("error");
+    scheduleProgressReset("Idle");
     processButton.disabled = false;
   }
 });

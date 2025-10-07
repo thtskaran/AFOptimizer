@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import os
+from typing import Callable, Optional
 from tqdm import tqdm
 
 
@@ -30,7 +31,9 @@ def is_significant_movement(prev_frame, current_frame, threshold):
   return non_zero_count > (gray_prev.shape[0] * gray_prev.shape[1] * 0.02)
 
 
-def remove_dead_frames(video_path, base_threshold):
+def remove_dead_frames(video_path,
+                       base_threshold,
+                       progress_callback: Optional[Callable[[int, int, Optional[str]], None]] = None):
   base_name = os.path.basename(video_path)
   output_path = os.path.splitext(base_name)[0] + "_frameDifference.mp4"
 
@@ -54,8 +57,14 @@ def remove_dead_frames(video_path, base_threshold):
   print("Processing video with initial threshold:", movement_threshold)
   frame_count, written_frame_count = 0, 0
 
-  # Initialize tqdm progress bar
-  pbar = tqdm(total=total_frames, desc="Processing Video", unit="frame")
+  total_frames = max(total_frames, 1)
+
+  # Initialize progress tracking
+  pbar = None
+  if progress_callback is None:
+    pbar = tqdm(total=total_frames, desc="Processing Video", unit="frame")
+  else:
+    progress_callback(0, total_frames, "Analyzing motion")
 
   ret, prev_frame = cap.read()
   while ret:
@@ -64,7 +73,10 @@ def remove_dead_frames(video_path, base_threshold):
       break
 
     frame_count += 1
-    pbar.update(1)  # Update the progress bar
+    if pbar:
+      pbar.update(1)  # Update the progress bar
+    elif progress_callback:
+      progress_callback(frame_count, total_frames, "Analyzing motion")
 
     if is_significant_movement(prev_frame, current_frame, movement_threshold):
       out.write(prev_frame)
@@ -74,7 +86,10 @@ def remove_dead_frames(video_path, base_threshold):
 
   cap.release()
   out.release()
-  pbar.close()  # Close the progress bar
+  if pbar:
+    pbar.close()  # Close the progress bar
+  elif progress_callback:
+    progress_callback(total_frames, total_frames, "Finalizing output")
 
   print(f"\nTotal frames processed: {frame_count}")
   print(f"Total frames written: {written_frame_count}")

@@ -4,3 +4,4 @@ numpy
 scikit-image
 tqdm
 scikit-video
+imageio-ffmpeg

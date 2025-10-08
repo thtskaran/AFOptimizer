@@ -17,6 +17,8 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
+from frame_optimization_methods.video_encoding import convert_to_h264
+
 ProgressCallback = Optional[Callable[[int, Optional[int], Optional[str]], None]]
 
 # Hashing constants
@@ -322,5 +324,17 @@ def deduplicate_frames(
 
   if written_frames == 0:
     raise RuntimeError("No frames written to output video.")
+
+  if pbar is not None:
+    print("Transcoding output to H.264...")
+  elif progress_callback:
+    progress_callback(processed_frames, total_frames or None,
+                      "Transcoding to H.264")
+
+  convert_to_h264(output_path)
+
+  if progress_callback:
+    progress_callback(processed_frames, total_frames or None,
+                      "Finalizing output")
 
   return str(output_path)

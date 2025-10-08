@@ -4,6 +4,8 @@ import os
 from typing import Callable, Optional
 from tqdm import tqdm
 
+from frame_optimization_methods.video_encoding import convert_to_h264
+
 
 def calculate_initial_threshold(cap, sample_size, base_threshold):
   total_movement = 0
@@ -88,7 +90,13 @@ def remove_dead_frames(video_path,
   out.release()
   if pbar:
     pbar.close()  # Close the progress bar
+    print("Transcoding output to H.264...")
   elif progress_callback:
+    progress_callback(total_frames, total_frames, "Transcoding to H.264")
+
+  convert_to_h264(output_path)
+
+  if progress_callback:
     progress_callback(total_frames, total_frames, "Finalizing output")
 
   print(f"\nTotal frames processed: {frame_count}")

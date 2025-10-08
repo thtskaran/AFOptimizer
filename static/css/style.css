@@ -217,12 +217,7 @@ textarea:focus-visible {
   line-height: 1.6;
 }
 
-.card-upload {
-  grid-column: span 2;
-}
-
 .card-progress {
-  grid-column: span 2;
   justify-content: center;
 }
 
@@ -580,6 +575,40 @@ textarea:focus-visible {
   color: var(--text-muted);
   font-weight: 500;
   letter-spacing: 0.04em;
+}
+
+@media (min-width: 1040px) {
+  .bento-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      "upload method method"
+      "parameters parameters progress"
+      "status status tips";
+  }
+
+  .card-upload {
+    grid-area: upload;
+  }
+
+  .card-method {
+    grid-area: method;
+  }
+
+  .card-parameters {
+    grid-area: parameters;
+  }
+
+  .card-progress {
+    grid-area: progress;
+  }
+
+  .card-status {
+    grid-area: status;
+  }
+
+  .card-tips {
+    grid-area: tips;
+  }
 }
 
 .card-tips ul {

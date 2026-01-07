@@ -303,7 +303,7 @@ optimizerForm.addEventListener("submit", async (event) => {
   const formData = new FormData(optimizerForm);
   formData.append("video", videoInput.files[0]);
 
-  setStatus("Processing video — this may take a moment...", "info");
+  setStatus("Processing video - this may take a moment...", "info");
   processButton.disabled = true;
   stopJobTracking();
   clearProgressReset();

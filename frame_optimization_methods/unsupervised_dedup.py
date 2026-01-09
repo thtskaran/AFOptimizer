@@ -18,6 +18,7 @@ import numpy as np
 from tqdm import tqdm
 
 from frame_optimization_methods.video_encoding import convert_to_h264
+from frame_optimization_methods.gpu_acceleration import get_gpu_info, GPUAccelerator
 
 ProgressCallback = Optional[Callable[[int, Optional[int], Optional[str]], None]]
 
@@ -58,9 +59,13 @@ def _fwht2d(matrix: np.ndarray) -> np.ndarray:
   return transformed
 
 
-def _compute_wht_hash(gray_frame: np.ndarray) -> int:
-  resized = cv2.resize(gray_frame, _HASH_RESOLUTION, interpolation=cv2.INTER_AREA)
-  smoothed = cv2.GaussianBlur(resized, (3, 3), 0)
+def _compute_wht_hash(gray_frame: np.ndarray, gpu_accel: Optional[GPUAccelerator] = None) -> int:
+  if gpu_accel:
+    resized = gpu_accel.resize(gray_frame, _HASH_RESOLUTION, interpolation=cv2.INTER_AREA)
+    smoothed = gpu_accel.gaussian_blur(resized, (3, 3), 0)
+  else:
+    resized = cv2.resize(gray_frame, _HASH_RESOLUTION, interpolation=cv2.INTER_AREA)
+    smoothed = cv2.GaussianBlur(resized, (3, 3), 0)
   transformed = _fwht2d(smoothed)
   block_h, block_w = _HASH_BLOCK
   low_freq_block = transformed[:block_h, :block_w].flatten()
@@ -72,11 +77,17 @@ def _compute_wht_hash(gray_frame: np.ndarray) -> int:
   return hash_value
 
 
-def _compute_ordinal_signature(gray_frame: np.ndarray) -> np.ndarray:
-  resized = cv2.resize(gray_frame, _HASH_RESOLUTION, interpolation=cv2.INTER_AREA)
-  gx = cv2.Sobel(resized, cv2.CV_32F, 1, 0, ksize=3)
-  gy = cv2.Sobel(resized, cv2.CV_32F, 0, 1, ksize=3)
-  magnitude = cv2.magnitude(gx, gy)
+def _compute_ordinal_signature(gray_frame: np.ndarray, gpu_accel: Optional[GPUAccelerator] = None) -> np.ndarray:
+  if gpu_accel:
+    resized = gpu_accel.resize(gray_frame, _HASH_RESOLUTION, interpolation=cv2.INTER_AREA)
+    gx = gpu_accel.sobel(resized, 1, 0, ksize=3)
+    gy = gpu_accel.sobel(resized, 0, 1, ksize=3)
+    magnitude = gpu_accel.magnitude(gx, gy)
+  else:
+    resized = cv2.resize(gray_frame, _HASH_RESOLUTION, interpolation=cv2.INTER_AREA)
+    gx = cv2.Sobel(resized, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(resized, cv2.CV_32F, 0, 1, ksize=3)
+    magnitude = cv2.magnitude(gx, gy)
   block_h, block_w = _HASH_BLOCK
   features = []
   for y in range(0, magnitude.shape[0], block_h):
@@ -98,19 +109,26 @@ def _ordinal_distance(sig_a: np.ndarray, sig_b: np.ndarray) -> float:
   return float(np.abs(sig_a.astype(np.int32) - sig_b.astype(np.int32)).sum())
 
 
-def _prepare_flow_frame(gray_frame: np.ndarray) -> np.ndarray:
+def _prepare_flow_frame(gray_frame: np.ndarray, gpu_accel: Optional[GPUAccelerator] = None) -> np.ndarray:
   height, width = gray_frame.shape[:2]
   if width <= _FLOW_TARGET_WIDTH:
     return gray_frame
   target_height = max(32, int(round(height * (_FLOW_TARGET_WIDTH / width))))
+  if gpu_accel:
+    return gpu_accel.resize(gray_frame, (_FLOW_TARGET_WIDTH, target_height), interpolation=cv2.INTER_AREA)
   return cv2.resize(gray_frame, (_FLOW_TARGET_WIDTH, target_height), interpolation=cv2.INTER_AREA)
 
 
 def _flow_metrics(prev_gray: np.ndarray,
-                  curr_gray: np.ndarray) -> Tuple[float, float, float]:
-  flow = cv2.calcOpticalFlowFarneback(prev_gray, curr_gray, None, 0.5, 3, 15, 3,
-                                      5, 1.1, 0)
-  magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1], angleInDegrees=False)
+                  curr_gray: np.ndarray,
+                  gpu_accel: Optional[GPUAccelerator] = None) -> Tuple[float, float, float]:
+  if gpu_accel:
+    flow = gpu_accel.calc_optical_flow_farneback(prev_gray, curr_gray)
+    magnitude, angle = gpu_accel.cart_to_polar(flow[..., 0], flow[..., 1], angle_in_degrees=False)
+  else:
+    flow = cv2.calcOpticalFlowFarneback(prev_gray, curr_gray, None, 0.5, 3, 15, 3,
+                                        5, 1.1, 0)
+    magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1], angleInDegrees=False)
   mean_mag = float(magnitude.mean())
   low_mag_ratio = float(np.mean(magnitude < _FLOW_LOW_MAG_NORM))
   motion_mask = magnitude > 0.05
@@ -157,8 +175,19 @@ def deduplicate_frames(
 
   output_path = source_path.with_name(f"{source_path.stem}_unsupervisedDedup.mp4")
 
+  # Initialize GPU acceleration
+  gpu_info = get_gpu_info()
+  gpu_accel = GPUAccelerator(gpu_info) if gpu_info.available else None
+  
+  if gpu_info.available:
+    print(f"Using GPU acceleration: {gpu_info.device_name} ({gpu_info.backend.value})")
+  else:
+    print("Using CPU processing")
+
   capture = cv2.VideoCapture(str(source_path))
   if not capture.isOpened():
+    if gpu_accel:
+      gpu_accel.cleanup()
     raise IOError(f"Unable to open video: {video_path}")
 
   total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -172,6 +201,8 @@ def deduplicate_frames(
   success, frame = capture.read()
   if not success:
     capture.release()
+    if gpu_accel:
+      gpu_accel.cleanup()
     raise IOError("Failed to read first frame from video.")
 
   height, width = frame.shape[:2]
@@ -209,10 +240,13 @@ def deduplicate_frames(
       progress_callback(processed_frames, total_frames or None, stage)
 
   # Process first frame (always keep)
-  gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-  flow_gray = _prepare_flow_frame(gray)
-  frame_hash = _compute_wht_hash(gray)
-  ordinal_signature = _compute_ordinal_signature(gray)
+  if gpu_accel:
+    gray = gpu_accel.cvt_color(frame, cv2.COLOR_BGR2GRAY)
+  else:
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+  flow_gray = _prepare_flow_frame(gray, gpu_accel)
+  frame_hash = _compute_wht_hash(gray, gpu_accel)
+  ordinal_signature = _compute_ordinal_signature(gray, gpu_accel)
   descriptors = _extract_orb_descriptors(gray, orb_detector)
 
   hash_history.append((frame_hash, ordinal_signature.copy(), 0))
@@ -239,10 +273,13 @@ def deduplicate_frames(
     if not success:
       break
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    flow_gray = _prepare_flow_frame(gray)
-    frame_hash = _compute_wht_hash(gray)
-    ordinal_signature = _compute_ordinal_signature(gray)
+    if gpu_accel:
+      gray = gpu_accel.cvt_color(frame, cv2.COLOR_BGR2GRAY)
+    else:
+      gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    flow_gray = _prepare_flow_frame(gray, gpu_accel)
+    frame_hash = _compute_wht_hash(gray, gpu_accel)
+    ordinal_signature = _compute_ordinal_signature(gray, gpu_accel)
 
     processed_frames += 1
     stage_label = "Hash filter"
@@ -288,7 +325,8 @@ def deduplicate_frames(
     # Stage 3: Motion-aware grouping
     stage_label = "Motion grouping"
     mean_flow, low_ratio, orientation_std = _flow_metrics(last_kept_flow_gray,
-                                                         flow_gray)
+                                                         flow_gray,
+                                                         gpu_accel)
     static_like = (mean_flow < flow_static_threshold and
                    low_ratio >= flow_low_ratio)
 
@@ -321,6 +359,9 @@ def deduplicate_frames(
   writer.release()
   if pbar is not None:
     pbar.close()
+  
+  if gpu_accel:
+    gpu_accel.cleanup()
 
   if written_frames == 0:
     raise RuntimeError("No frames written to output video.")

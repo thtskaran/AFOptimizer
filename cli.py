@@ -18,37 +18,7 @@ from frame_optimization_methods.opticalFlow import (
 from frame_optimization_methods.ssim import process_video as process_video_ssim
 from frame_optimization_methods.unsupervised_dedup import deduplicate_frames
 from frame_optimization_methods.video_encoding import convert_to_h264
-
-
-UNSUPERVISED_PRESETS = {
-    "gentle": {
-        "hash_threshold": 6,
-        "ordinal_footrule_threshold": 220.0,
-        "feature_similarity": 0.30,
-        "flow_static_threshold": 0.08,
-        "flow_low_ratio": 0.98,
-        "pan_orientation_std": 0.60,
-        "safety_keep_seconds": 1.0,
-    },
-    "balanced": {
-        "hash_threshold": 8,
-        "ordinal_footrule_threshold": 260.0,
-        "feature_similarity": 0.26,
-        "flow_static_threshold": 0.09,
-        "flow_low_ratio": 0.97,
-        "pan_orientation_std": 0.65,
-        "safety_keep_seconds": 1.5,
-    },
-    "aggressive": {
-        "hash_threshold": 12,
-        "ordinal_footrule_threshold": 320.0,
-        "feature_similarity": 0.22,
-        "flow_static_threshold": 0.12,
-        "flow_low_ratio": 0.94,
-        "pan_orientation_std": 0.80,
-        "safety_keep_seconds": 2.5,
-    },
-}
+from frame_optimization_methods.presets import UNSUPERVISED_PRESETS
 
 
 @contextlib.contextmanager

@@ -1,0 +1,54 @@
+# GPU Acceleration Dependencies for AFOptimizer
+# ==============================================
+#
+# IMPORTANT: Only install ONE of the options below based on your hardware!
+# GPU acceleration is OPTIONAL - the software works fine on CPU only.
+#
+# Installation Instructions:
+# -------------------------
+#
+# 1. For NVIDIA GPU Users (Windows/Linux):
+#    - First, check your CUDA version: nvidia-smi
+#    - Then install the matching CuPy version:
+#
+#      For CUDA 11.x:  pip install cupy-cuda11x>=12.0.0
+#      For CUDA 12.x:  pip install cupy-cuda12x>=13.0.0
+#
+#    Note: If you're not sure, try CUDA 12.x first (most common)
+#
+# 2. For AMD/Intel GPU Users (Windows/Linux):
+#    - Install OpenCL drivers first (from GPU manufacturer)
+#    - Then run: pip install pyopencl>=2023.1
+#
+# 3. For Mac Users (Apple Silicon M1/M2/M3):
+#    - OpenCL is built-in, just run: pip install pyopencl>=2023.1
+#
+# 4. For Mac Users (Intel):
+#    - Same as option 2 above
+#
+# Example Installation Commands:
+# ------------------------------
+#
+# Windows with NVIDIA GPU (CUDA 12):
+#   pip install cupy-cuda12x>=13.0.0
+#
+# Mac with Apple Silicon:
+#   pip install pyopencl>=2023.1
+#
+# Linux with AMD GPU:
+#   pip install pyopencl>=2023.1
+#
+# Verification:
+# ------------
+# After installation, run this to test GPU detection:
+#   python test_gpu_detection.py
+#
+# If GPU is not detected, the software will automatically use CPU.
+# This is completely fine - CPU processing still works great!
+
+# Optional: CuPy for NVIDIA GPUs (uncomment one based on your CUDA version)
+# cupy-cuda11x>=12.0.0    # For CUDA 11.x
+# cupy-cuda12x>=13.0.0    # For CUDA 12.x
+
+# Optional: PyOpenCL for AMD/Intel/Apple GPUs
+# pyopencl>=2023.1

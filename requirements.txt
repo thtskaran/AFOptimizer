@@ -1,7 +1,20 @@
-Flask
-opencv-python
-numpy
-scikit-image
-tqdm
-scikit-video
-imageio-ffmpeg
+# Core dependencies with pinned versions for stability
+Flask>=2.3.0,<4.0.0
+opencv-python>=4.8.0,<5.0.0
+numpy>=1.24.0,<2.0.0
+scikit-image>=0.21.0,<0.25.0
+tqdm>=4.65.0,<5.0.0
+imageio-ffmpeg>=0.4.8,<0.6.0
+
+# Note: GPU acceleration dependencies are in requirements-gpu.txt
+# Install them separately based on your hardware:
+#   pip install -r requirements-gpu.txt
+#
+# For hardware-accelerated video encoding (optional):
+#   - NVIDIA: Install ffmpeg with NVENC support (h264_nvenc)
+#   - AMD: Install ffmpeg with AMF support (h264_amf)
+#   - Intel: Install ffmpeg with QuickSync support (h264_qsv)
+#   - Apple: VideoToolbox is usually included in macOS ffmpeg builds
+#
+# Note: GPU acceleration is automatically detected and used when available.
+# The system gracefully falls back to CPU if GPU libraries are not installed.

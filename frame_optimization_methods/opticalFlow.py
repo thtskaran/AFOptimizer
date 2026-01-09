@@ -1,20 +1,29 @@
+from __future__ import annotations
+
 import cv2
 import numpy as np
-import os
-from typing import Callable, Optional
-from tqdm import tqdm
+from typing import Optional
 
-from frame_optimization_methods.video_encoding import convert_to_h264
+from frame_optimization_methods.video_processor_base import VideoProcessorBase, ProgressCallback
+from frame_optimization_methods.gpu_acceleration import GPUAccelerator
 
 
-def calculate_optical_flow(prev_frame, current_frame):
-  # Convert frames to grayscale
-  prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
-  current_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+def calculate_optical_flow(prev_frame, current_frame, gpu_accel: Optional[GPUAccelerator] = None):
+  # Convert frames to grayscale (using GPU if available)
+  if gpu_accel:
+    prev_gray = gpu_accel.cvt_color(prev_frame, cv2.COLOR_BGR2GRAY)
+    current_gray = gpu_accel.cvt_color(current_frame, cv2.COLOR_BGR2GRAY)
+  else:
+    prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
+    current_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
 
   # Calculate dense optical flow using Farneback method
-  flow = cv2.calcOpticalFlowFarneback(prev_gray, current_gray, None, 0.5, 3,
-                                      15, 3, 5, 1.2, 0)
+  # Note: Farneback doesn't have direct GPU support, but preprocessing can use GPU
+  if gpu_accel:
+    flow = gpu_accel.calc_optical_flow_farneback(prev_gray, current_gray)
+  else:
+    flow = cv2.calcOpticalFlowFarneback(prev_gray, current_gray, None, 0.5, 3,
+                                        15, 3, 5, 1.2, 0)
   return flow
 
 
@@ -27,80 +36,91 @@ def is_significant_movement_optical_flow(flow, mag_threshold):
   return mean_magnitude > mag_threshold
 
 
-def remove_dead_frames(video_path,
-                       flow_mag_threshold,
-                       progress_callback: Optional[Callable[[int, int, Optional[str]], None]] = None):
-  base_name = os.path.basename(video_path)
-  output_path = os.path.splitext(base_name)[0] + "_opticalFlow.mp4"
+class OpticalFlowProcessor(VideoProcessorBase):
+    """Optical flow-based video processor."""
 
-  cap = cv2.VideoCapture(video_path)
-  if not cap.isOpened():
-    print(f"Error opening video file: {video_path}")
-    return
+    def process(self, video_path: str, flow_mag_threshold: float = 0.4,
+                progress_callback: ProgressCallback = None) -> Optional[str]:
+        """Process video using optical flow method.
 
-  total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-  fps = cap.get(cv2.CAP_PROP_FPS)
-  width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-  height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-  fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-  out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        Args:
+            video_path: Path to input video file
+            flow_mag_threshold: Threshold for flow magnitude
+            progress_callback: Optional callback for progress updates
 
-  ret, prev_frame = cap.read()
-  if not ret:
-    print("Error reading the first frame.")
-    cap.release()
-    return
+        Returns:
+            Output file path if successful, None otherwise
+        """
+        output_path = self._generate_output_path(video_path, "_opticalFlow")
 
-  frame_count, dead_frame_count, written_frame_count = 0, 0, 0
+        # Initialize GPU acceleration
+        self._initialize_gpu()
 
-  total_frames = max(total_frames, 1)
+        # Open video and create writer
+        if not self._open_video_capture(video_path):
+            self._cleanup()
+            return None
 
-  pbar = None
-  if progress_callback is None:
-    pbar = tqdm(total=total_frames, desc="Processing Video", unit="frame")
-  else:
-    progress_callback(0, total_frames, "Analyzing motion")
+        if not self._create_video_writer(output_path):
+            self._cleanup()
+            return None
 
-  while True:
-    ret, current_frame = cap.read()
-    if not ret:
-      break
+        ret, prev_frame = self.cap.read()
+        if not ret:
+            print("Error reading the first frame.")
+            self._cleanup()
+            return None
 
-    frame_count += 1
-    if pbar:
-      pbar.update(1)
-    elif progress_callback:
-      progress_callback(frame_count, total_frames, "Analyzing motion")
+        # Initialize progress tracking
+        self._initialize_progress(progress_callback, "Analyzing motion")
 
-    flow = calculate_optical_flow(prev_frame, current_frame)
-    if is_significant_movement_optical_flow(flow, flow_mag_threshold):
-      out.write(prev_frame)
-      written_frame_count += 1
-    else:
-      dead_frame_count += 1
+        frame_count, dead_frame_count, written_frame_count = 0, 0, 0
 
-    prev_frame = current_frame
+        try:
+            while True:
+                ret, current_frame = self.cap.read()
+                if not ret:
+                    break
 
-  cap.release()
-  out.release()
-  if pbar:
-    pbar.close()  # Close the progress bar
-    print("Transcoding output to H.264...")
-  elif progress_callback:
-    progress_callback(total_frames, total_frames, "Transcoding to H.264")
+                frame_count += 1
+                self._update_progress(frame_count, "Analyzing motion")
 
-  convert_to_h264(output_path)
+                flow = calculate_optical_flow(prev_frame, current_frame, self.gpu_accel)
+                if is_significant_movement_optical_flow(flow, flow_mag_threshold):
+                    self.out.write(prev_frame)
+                    written_frame_count += 1
+                else:
+                    dead_frame_count += 1
 
-  if progress_callback:
-    progress_callback(total_frames, total_frames, "Finalizing output")
+                prev_frame = current_frame
 
-  print(f"\nTotal frames processed: {frame_count}")
-  print(f"Dead frames (not written): {dead_frame_count}")
-  print(f"Frames written to output: {written_frame_count}")
+        finally:
+            self._cleanup()
+
+        # Convert to H.264
+        self._convert_to_h264(output_path)
+
+        print(f"\nTotal frames processed: {frame_count}")
+        print(f"Dead frames (not written): {dead_frame_count}")
+        print(f"Frames written to output: {written_frame_count}")
+
+        return output_path
 
 
-# Uncomment below lines for direct usage
-# input_video = 'input.mp4'
-# output_video = 'output.mp4'
-# flow_mag_threshold = 0.4  # Start with this value and adjust based on trials
-# remove_dead_frames(input_video, output_video, flow_mag_threshold)
+def remove_dead_frames(video_path: str,
+                       flow_mag_threshold: float,
+                       progress_callback: ProgressCallback = None) -> Optional[str]:
+    """Remove dead frames using optical flow method.
+
+    This is a convenience function that maintains backwards compatibility.
+
+    Args:
+        video_path: Path to input video file
+        flow_mag_threshold: Threshold for flow magnitude
+        progress_callback: Optional callback for progress updates
+
+    Returns:
+        Output file path if successful, None otherwise
+    """
+    processor = OpticalFlowProcessor()
+    return processor.process(video_path, flow_mag_threshold, progress_callback)
